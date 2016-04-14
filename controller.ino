@@ -1,8 +1,13 @@
+// For the ArduinoUNO
 #include <SoftwareSerial.h>
 #include <serLCD.h>
+
+// For the Sensor Chip
 #include "Wire.h"
 #include "I2Cdev.h"
 #include "MPU9250.h"
+
+#define LED_PIN 13
 
 // Attach the serial display's RX line to digital pin 2
 SoftwareSerial mySerial(3,2); // pin 2 = TX, pin 3 = RX (unused)
@@ -13,7 +18,6 @@ int16_t ax, ay, az;
 int16_t gx, gy, gz;
 int16_t mx, my, mz;
 
-#define LED_PIN 13
 bool blinkState = false;
 
 void setup()
