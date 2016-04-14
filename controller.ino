@@ -1,12 +1,19 @@
+// For the ArduinoUNO
 #include <SoftwareSerial.h>
 #include <serLCD.h>
+
+// For the Sensor Chip
 #include "Wire.h"
 #include "I2Cdev.h"
 #include "MPU9250.h"
 
+<<<<<<< HEAD
 #define AHRS true         // set to false for basic data read
 #define SerialDebug true   // set to true to get Serial output for debugging
 
+=======
+#define LED_PIN 13
+>>>>>>> origin/master
 
 // Attach the serial display's RX line to digital pin 2
 SoftwareSerial mySerial(3,2); // pin 2 = TX, pin 3 = RX (unused)
@@ -21,12 +28,16 @@ int16_t accelCount[3];  // Stores the 16-bit signed accelerometer sensor output
 int16_t gyroCount[3];   // Stores the 16-bit signed gyro sensor output
 int16_t magCount[3];    // Stores the 16-bit signed magnetometer sensor output
 
+<<<<<<< HEAD
 uint32_t delt_t = 0; // used to control display output rate
 uint32_t count = 0, sumCount = 0; // used to control display output rate
 float pitch, yaw, roll;
 
 float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest sensor data values 
 float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};    // vector to hold quaternion
+=======
+bool blinkState = false;
+>>>>>>> origin/master
 
 void setup()
 {
