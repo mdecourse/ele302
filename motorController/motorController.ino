@@ -132,17 +132,17 @@ void setup() {
 void loop() {
 
     //set direction and speed (sample values below)
-    dir1 = 1;
+    dir1 = 0;
     pwm1 = 255; 
     digitalWrite(DIR_M1, dir1);
     analogWrite(PWM_M1, pwm1); // write to pins
 
-    dir2 = 0;
-    pwm2 = 128;
+    dir2 = 1;
+    pwm2 = 255;
     digitalWrite(DIR_M2, dir2);
     analogWrite(PWM_M2, pwm2);
 
-    dir3 = 1;
+    dir3 = 0;
     pwm3 = 255;
     digitalWrite(DIR_M3, dir3);
     analogWrite(PWM_M3, pwm3);
