@@ -245,7 +245,7 @@ boolean dir1, dir2, dir3, dir4;
 
 // Pin definitions
 int intPin = 28;  // These can be changed, 2 and 3 are the Arduinos ext int pins
-int myLed = 13; // Set up pin 13 led for toggling
+int myLed = 30; // Set up pin 13 led for toggling
 
 int16_t accelCount[3];  // Stores the 16-bit signed accelerometer sensor output
 int16_t gyroCount[3];   // Stores the 16-bit signed gyro sensor output
@@ -283,9 +283,8 @@ uint32_t Now = 0;        // used to calculate integration interval
 float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest sensor data values 
 float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};    // vector to hold quaternion
 float eInt[3] = {0.0f, 0.0f, 0.0f};       // vector to hold integral error for Mahony method
-
-
-
+float rate;
+float errSumX, errSumY, errorX, errorY;
 
 
 // For the ArduinoUNO
@@ -298,8 +297,8 @@ float eInt[3] = {0.0f, 0.0f, 0.0f};       // vector to hold integral error for M
 //#define LED_PIN 13
 
 // Attach the serial display's RX line to digital pin 2
-SoftwareSerial LCD1(2,3); // pin 4 = TX, pin 2 = RX (unused)
-SoftwareSerial LCD2(5,4); 
+SoftwareSerial LCD1(32,36); // pin 4 = TX, pin 2 = RX (unused)
+SoftwareSerial LCD2(34,38); 
 
 void setup()
 {
@@ -719,16 +718,17 @@ else {
         Serial.print(angle_X, 2);
         Serial.print(", ");
         Serial.print(angular_rate_X, 2);
-        Serial.print("Y");
+        Serial.print("    Y");
         Serial.print(angle_Y, 2);
         Serial.print(", ");
         Serial.print(angular_rate_Y, 2);
         Serial.println();
         
-        Serial.print("rate = "); Serial.print((float)sumCount/sum, 2); Serial.println(" Hz");
+        rate = (float)sumCount/sum;
+        Serial.print("rate = "); Serial.print(rate); Serial.println(" Hz");
     }
     
-    controlMotors(angle_X, angular_rate_X, angle_Y, angular_rate_Y);
+    controlMotors(angle_X, angular_rate_X, angle_Y, angular_rate_Y, rate);
    // testMotors();
     
 //    display.clearDisplay();    
@@ -776,9 +776,36 @@ else {
   }
 }
 
-void controlMotors(float ax, float arx, float ay, float ary){
+void controlMotors(float ax, float arx, float ay, float ary, float rate){
   
-  if (ax > 0) {
+  errorY = 0 - ay;
+  errorX = 0 - ax;
+  errSumX += (errorX * (1/rate));
+  errSumY += (errorX * (1/rate));
+  
+  //Compute P Output 
+  // Kp = 100 
+  //observation tells me it's hard to get arx/y up to 1 even if falling very fast
+  
+  //Test with quadratic funciton
+  pwm1 = 400*arx*arx;
+  pwm2 = 400*ary*ary;
+  pwm3 = 400*arx*arx;
+  pwm4 = 400*ary*ary;
+  
+  //Compute I Output 
+  // Ki = 1 
+//  pwm1 += (1 * errSumX);
+//  pwm2 += (1 * errSumY);
+//  pwm3 += (1 * errSumX);
+//  pwm4 += (1 * errSumY);
+  
+  /*Compute D Output
+  if (error > 0){
+  Output += (3 * dErr);
+  } */
+  
+  if (ay > 0) {
     dir2 = 0;
     dir4 = 1;
   }
@@ -786,30 +813,24 @@ void controlMotors(float ax, float arx, float ay, float ary){
     dir2 = 1;
     dir4 = 0;
   }
-  if (ay > 0 ) {
-    dir1 = 0;
-    dir3 = 1;
-  }
-  else {
+  if (ax > 0 ) {
     dir1 = 1;
     dir3 = 0;
   }
-  
-  // calculate pwm (observation tells me it's hard to get arx/y up to 1 even if falling very fast)
-  pwm1 = 255* ary;
-  pwm2 = 255* arx;
-  pwm3 = 255* ary;
-  pwm4 = 255* arx; 
+  else {
+    dir1 = 0;
+    dir3 = 1;
+  }
   
   // cap output
   if (pwm1 >= 255)
     pwm1 = 255;
-  if (pwm1 >= 255)
-    pwm1 = 255;
-  if (pwm1 >= 255)
-    pwm1 = 255;
-  if (pwm1 >= 255)
-    pwm1 = 255;
+  if (pwm2 >= 255)
+    pwm2 = 255;
+  if (pwm3 >= 255)
+    pwm3 = 255;
+  if (pwm4 >= 255)
+    pwm4 = 255;
     
   digitalWrite(DIR_M1, dir1);
   analogWrite(PWM_M1, pwm1); // write to pins
@@ -819,7 +840,22 @@ void controlMotors(float ax, float arx, float ay, float ary){
   analogWrite(PWM_M3, pwm3);
   digitalWrite(DIR_M4, dir4);
   analogWrite(PWM_M4, pwm4);
- // delay();
+ // delay(10);
+ 
+   if(SerialDebug) {
+      Serial.print("PWM1 = ");
+      Serial.print(pwm1);
+      Serial.println();
+      Serial.print("PWM2 = ");
+      Serial.print(pwm2);
+      Serial.println();
+      Serial.print("PWM3 = ");
+      Serial.print(pwm3);
+      Serial.println();
+      Serial.print("PWM4 = ");
+      Serial.print(pwm4);
+      Serial.println();
+  }
 }
 
 void testMotors(){
