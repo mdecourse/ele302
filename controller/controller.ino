@@ -28,6 +28,7 @@
  */
 #include <SPI.h>
 #include <Wire.h> 
+#include <math.h>
 
 // Set Directional Pins for controlling motor direction
 #define DIR_M1 2
@@ -210,7 +211,9 @@
 #endif  
 
 #define AHRS true         // set to false for basic data read
-#define SerialDebug true   // set to true to get Serial output for debugging
+#define SerialDebug false   // set to true to get Serial output for debugging
+
+#define MOTOR_DEADZONE 10  //below that, not enough torque to move. May change when we have the two batteries connected
 
 // Set initial input parameters
  enum Ascale {
@@ -284,17 +287,13 @@ float ax, ay, az, gx, gy, gz, mx, my, mz; // variables to hold latest sensor dat
 float q[4] = {1.0f, 0.0f, 0.0f, 0.0f};    // vector to hold quaternion
 float eInt[3] = {0.0f, 0.0f, 0.0f};       // vector to hold integral error for Mahony method
 float rate;
-float errSumX, errSumY, errorX, errorY;
-
+float errSumX, errSumY, errorX, errorY, lastErrX, lastErrY, dErrX, dErrY;
+float kp, ki, kd;
+int checkStart;
 
 // For the ArduinoUNO
 #include <SoftwareSerial.h>
 #include <serLCD.h>
-//#include <Wire.h>
-//
-//#define AHRS true         // set to false for basic data read
-//#define SerialDebug true   // set to true to get Serial output for debugging
-//#define LED_PIN 13
 
 // Attach the serial display's RX line to digital pin 2
 SoftwareSerial LCD1(32,36); // pin 4 = TX, pin 2 = RX (unused)
@@ -712,6 +711,7 @@ else {
     angle_Y = pitch;                   // 0.02 is center of gravity offset
     angular_rate_Y = -((double)gy/131.0); // converted to radian
 
+
     if(SerialDebug) {
         Serial.print("Angles & Angular Rates ");
         Serial.print("X");
@@ -723,13 +723,18 @@ else {
         Serial.print(", ");
         Serial.print(angular_rate_Y, 2);
         Serial.println();
-        
-        rate = (float)sumCount/sum;
-        Serial.print("rate = "); Serial.print(rate); Serial.println(" Hz");
+       
     }
     
+    rate = (float)sumCount/sum;
+    Serial.print("rate = "); Serial.print(rate); Serial.println(" Hz");
+    
+    if (checkStart > 2) {
     controlMotors(angle_X, angular_rate_X, angle_Y, angular_rate_Y, rate);
-   // testMotors();
+    }
+  //  testMotors();
+  
+    checkStart++;
     
 //    display.clearDisplay();    
 //
@@ -778,33 +783,103 @@ else {
 
 void controlMotors(float ax, float arx, float ay, float ary, float rate){
   
-  errorY = 0 - ay;
-  errorX = 0 - ax;
+  //Compute P Output 
+   kp = 1.5;
+  
+  //Test with quadratic funciton
+  pwm1 = (0*fabs(arx)*fabs(arx)) + (kp * fabs(ax) * fabs(ax)) + MOTOR_DEADZONE;
+  pwm2 = (0*fabs(ary)*fabs(ary)) + (kp * fabs(ay) * fabs(ay)) + MOTOR_DEADZONE;
+  pwm3 = (0*fabs(arx)*fabs(arx)) + (kp * fabs(ax) * fabs(ax)) + MOTOR_DEADZONE;
+  pwm4 = (0*fabs(ary)*fabs(ary)) + (kp * fabs(ay) * fabs(ay)) + MOTOR_DEADZONE;
+  
+  errorY = fabs(ay) - 0;
+  errorX = fabs(ax) - 0;
+  
+  if(SerialDebug) {
+    Serial.print("errorY  is ");
+    Serial.print(errorY);
+    Serial.println();
+    
+    Serial.print("errorX is ");
+    Serial.print(errorX);
+    Serial.println();
+  }
+  
   errSumX += (errorX * (1/rate));
   errSumY += (errorX * (1/rate));
   
-  //Compute P Output 
-  // Kp = 100 
-  //observation tells me it's hard to get arx/y up to 1 even if falling very fast
-  
-  //Test with quadratic funciton
-  pwm1 = 400*arx*arx;
-  pwm2 = 400*ary*ary;
-  pwm3 = 400*arx*arx;
-  pwm4 = 400*ary*ary;
+  if(SerialDebug) { 
+    Serial.print("rate is ");
+    Serial.print(rate);
+    Serial.println();
+    
+    Serial.print("errSumX is ");
+    Serial.print(errSumX);
+    Serial.println();
+    
+    Serial.print("errSumY is ");
+    Serial.print(errSumY);
+    Serial.println();
+  }
+//  ------------------------------------------
   
   //Compute I Output 
-  // Ki = 1 
-//  pwm1 += (1 * errSumX);
-//  pwm2 += (1 * errSumY);
-//  pwm3 += (1 * errSumX);
-//  pwm4 += (1 * errSumY);
+  ki = 0;
+  pwm1 += (ki * errSumX);
+  pwm2 += (ki * errSumY);
+  pwm3 += (ki * errSumX);
+  pwm4 += (ki * errSumY);
   
-  /*Compute D Output
-  if (error > 0){
-  Output += (3 * dErr);
-  } */
+     if(SerialDebug) {
+      Serial.print("ki 1 = ");
+      Serial.print(ki * errSumX);
+      Serial.println();
+      Serial.print("ki 2 = ");
+      Serial.print(ki * errSumY);
+      Serial.println();
+      Serial.print("ki 3 = ");
+      Serial.print(ki * errSumX);
+      Serial.println();
+      Serial.print("ki 4 = ");
+      Serial.print(ki * errSumX);
+      Serial.println();
+  }
+
+//  ------------------------------------------
+
+  // compute derivative term (if desired)
+  dErrX = (errorX - lastErrX) / (1/rate);
+  dErrY = (errorY - lastErrY) / (1/rate);
   
+  // Compute D Output
+  kd = 0.05;
+  if (errorX > 0){
+  pwm1 += (kd * dErrX);
+  pwm3 += (kd * dErrX);
+  } 
+  if (errorY > 0){
+  pwm2 += (kd * dErrY);
+  pwm4 += (kd * dErrY);
+  } 
+  
+       if(SerialDebug) {
+      Serial.print("kd 1 = ");
+      Serial.print(kd * dErrX);
+      Serial.println();
+      Serial.print("kd 2 = ");
+      Serial.print(kd * dErrY);
+      Serial.println();
+      Serial.print("kd 3 = ");
+      Serial.print(kd * dErrX);
+      Serial.println();
+      Serial.print("kd 4 = ");
+      Serial.print(kd * dErrY);
+      Serial.println();
+  }
+  
+ 
+//  ------------------------------------------
+// Get direction
   if (ay > 0) {
     dir2 = 0;
     dir4 = 1;
@@ -856,28 +931,32 @@ void controlMotors(float ax, float arx, float ay, float ary, float rate){
       Serial.print(pwm4);
       Serial.println();
   }
+  
+  lastErrX = errorX;
+  lastErrY = errorY; 
+  
 }
 
 void testMotors(){
   
   //set direction and speed (sample values below)
   dir1 = 0;
-  pwm1 = 255; 
+  pwm1 = 25; 
   digitalWrite(DIR_M1, dir1);
   analogWrite(PWM_M1, pwm1); // write to pins
 
   dir2 = 1;
-  pwm2 = 255;
+  pwm2 = 30;
   digitalWrite(DIR_M2, dir2);
   analogWrite(PWM_M2, pwm2);
 
   dir3 = 0;
-  pwm3 = 255;
+  pwm3 = 35;
   digitalWrite(DIR_M3, dir3);
   analogWrite(PWM_M3, pwm3);
 
   dir4 = 0;
-  pwm4 = 255;
+  pwm4 = 40;
   digitalWrite(DIR_M4, dir4);
   analogWrite(PWM_M4, pwm4);
 

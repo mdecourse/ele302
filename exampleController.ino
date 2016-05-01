@@ -229,14 +229,15 @@ void Wireless_Control()
 }
 
 /*
-任意方向直线运动
-将车体坐标系xoy的速度转换成电机的控制坐标系中的速度
-			   电机方向			  全局运动坐标	     传感器测量轴
-			   /\            |        ^			  |      ^
-			V1 /     \ V2    |    Vy  |			  |	   x |
-			         \/      |        |			  |      |
-			     <--         |         ---->	  |		  ---->
-			     V3          |          Vx		  |		   y
+
+Linear motion in any direction
+Converting the coordinate system xoy vehicle speed to control the coordinate system of the motor speed
+Motor direction	        Global motion coordinates     Sensor measuring axis
+			   /\            |        ^			             |      ^
+			V1 /     \ V2    |    Vy  |			             |	   x |
+			         \/      |        |			             |      |
+			     <--         |         ---->	           | 		  ---->
+			     V3          |          Vx		           |		          y
 */
 void xoy_to_threeWay(float in_X, float in_Y)
 {
@@ -251,7 +252,7 @@ void threeWay_to_xoy(int in_speed1, int in_speed2, int in_speed3)
   speed_feedback_Y = -0.866*(in_speed2-in_speed1);
 }
 
-//计算XY分量上的速度
+//Speed ​​calculation component on the XY
 void XY_speed_calculate(void)	
 {
  /*
@@ -260,16 +261,16 @@ void XY_speed_calculate(void)
   int K_position_AD = analogRead(K_POS_AD)-512;
   int K_velocity_AD = analogRead(K_POS_DOT_AD)-512;
 */
-  /******** X轴 *********/
-  velocity_X = speed_feedback_X;			//车轮的平均速度
+  /******** X axis *********/
+  velocity_X = speed_feedback_X;			//The average speed of the wheel
   	
-  velocity_filter_X *= 0.95;				//车速低通滤波
+  velocity_filter_X *= 0.95;				//Speed ​​low pass filter
   velocity_filter_X += velocity_X * 0.05;
   	
-  position_X += velocity_filter_X;		//车轮的位置
-  position_X += position_Need_X;  		//期望位移
+  position_X += velocity_filter_X;		//Wheel position
+  position_X += position_Need_X;  		//Expected displacement
   	
-  if(position_X < -POSITION_LIMIT)		//限幅，防止位置误差过大导致的不稳定
+  if(position_X < -POSITION_LIMIT)		//Limiter to prevent instability caused by the position error is too large
     position_X = -POSITION_LIMIT;
   else if(position_X > POSITION_LIMIT)
     position_X = POSITION_LIMIT;
@@ -279,7 +280,7 @@ void XY_speed_calculate(void)
           + K_position_X * position_X * 106   //106
           + K_velocity_X * velocity_filter_X * 90; //90
 
-	/******** Y轴 *********/
+	/******** Y axis *********/
   velocity_Y = speed_feedback_Y;			//车轮的平均速度
   	
   velocity_filter_Y *= 0.95;				//车速低通滤波
