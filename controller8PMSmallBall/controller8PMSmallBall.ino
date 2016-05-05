@@ -297,8 +297,8 @@ int checkStart;
 double refY, inY, outY;    // PID variables
 double refX, inX, outX;    // PID variables
 
-PID PID_Y(&inY, &outY, &refY, 25, 0, 0.1, DIRECT);    // Y axis PID
-PID PID_X(&inX, &outX, &refX, 35, 0, 0.1, DIRECT);    // X Axis PID
+PID PID_Y(&inY, &outY, &refY, 53, 0, 0, DIRECT);    // Y axis PID // 1&3
+PID PID_X(&inX, &outX, &refX, 53, 0, 0, DIRECT);    // X Axis PID // 2&4
 
 float pitchAccel, rollAccel;
 
@@ -309,10 +309,10 @@ long interval = 10;        // time constant for timers
 float signalX;
 float signalY;
 
-int motorStart = 0;         // variable to make the motor start at something else other than zero
-double motorGain1 = 9;       // post PID motor gain
-double motorGain2 = 12;
-double deadSpot = 3;        // variable for deadspot
+int motorStart = 9;         // variable to make the motor start at something else other than zero
+double motorGain1 = 24;       // post PID motor gain 2&4
+double motorGain2 = 24;       //1&3
+double deadSpot = 7;        // variable for deadspot
 
 
 #define dt 0.01          // time constant for complimentery filter
@@ -337,6 +337,8 @@ void setup()
     PID_Y.SetOutputLimits(-255, 255);    // limits for PID loops
     PID_X.SetMode(AUTOMATIC);
     PID_X.SetOutputLimits(-255, 255);
+    PID_X.SetSampleTime(25);
+    PID_Y.SetSampleTime(25);   
 
     // Setup pins:
     pinMode(SS_M1, OUTPUT); 
@@ -475,11 +477,44 @@ void setup()
         Serial.print("z-axis self test: gyration trim within : "); Serial.print(SelfTest[5],1); Serial.println("% of factory value");
 
         calibrateMPU9250(gyroBias, accelBias); // Calibrate gyro and accelerometers, load biases in bias registers
+        
+        Serial.print(" X bias is ");
+        Serial.print(gyroBias[0]);
+        Serial.print(" Y bias is ");
+        Serial.println(gyroBias[1]);
+        Serial.print(" X bias is ");
+        Serial.print(accelBias[0]);
+        Serial.print(" Y bias is ");
+        Serial.print(accelBias[1]);
 
     //    delay(2000);
 
         initMPU9250(); 
         Serial.println("MPU9250 initialized for active data mode...."); // Initialize device for active mode read of acclerometer, gyroscope, and temperature
+        
+        readAccelData(accelCount);  // Read the x/y/z adc values
+        getAres();
+        
+        // Now we'll calculate the accleration value into actual g's
+        ax = (float)accelCount[0]*aRes; // - accelBias[0];  // get actual g value, this depends on scale being set
+        ay = (float)accelCount[1]*aRes; // - accelBias[1]; 
+        
+        while (!(readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01)){  // On interrupt, check if data ready interrupt
+        }
+      
+       while ((fabs(ax*1000) >= 2) || (fabs(ay*1000) >= 2)){
+        calibrateMPU9250(gyroBias, accelBias); // Calibrate gyro and accelerometers, load biases in bias registers
+
+        initMPU9250(); 
+        Serial.println("MPU9250 initialized for active data mode...."); // Initialize device for active mode read of acclerometer, gyroscope, and temperature
+        
+        readAccelData(accelCount);  // Read the x/y/z adc values
+        getAres();
+        
+        // Now we'll calculate the accleration value into actual g's
+        ax = (float)accelCount[0]*aRes; // - accelBias[0];  // get actual g value, this depends on scale being set
+        ay = (float)accelCount[1]*aRes; // - accelBias[1]; 
+       }
 
 //        // Read the WHO_AM_I register of the magnetometer, this is a good test of communication
 //        byte d = readByte(AK8963_ADDRESS, WHO_AM_I_AK8963);  // Read WHO_AM_I register for AK8963
@@ -580,23 +615,23 @@ void loop()
 //    delt_t = millis() - count;
 //    if (delt_t > 500) { // update LCD once per half-second independent of read rate
 
-        if(SerialDebug) {
-            Serial.print("ax = "); Serial.print((int)1000*ax);  
-            Serial.print(" ay = "); Serial.print((int)1000*ay); 
-            Serial.print(" az = "); Serial.print((int)1000*az); Serial.println(" mg");
-            Serial.print("gx = "); Serial.print( gx, 2); 
-            Serial.print(" gy = "); Serial.print( gy, 2); 
-            Serial.print(" gz = "); Serial.print( gz, 2); Serial.println(" deg/s");
-//            Serial.print("mx = "); Serial.print( (int)mx ); 
-//            Serial.print(" my = "); Serial.print( (int)my ); 
-//            Serial.print(" mz = "); Serial.print( (int)mz ); Serial.println(" mG");
+//        if(SerialDebug) {
+//            Serial.print("ax = "); Serial.print((int)1000*ax);  
+//            Serial.print(" ay = "); Serial.print((int)1000*ay); 
+//            Serial.print(" az = "); Serial.print((int)1000*az); Serial.println(" mg");
+//            Serial.print("gx = "); Serial.print( gx, 2); 
+//            Serial.print(" gy = "); Serial.print( gy, 2); 
+//            Serial.print(" gz = "); Serial.print( gz, 2); Serial.println(" deg/s");
+////            Serial.print("mx = "); Serial.print( (int)mx ); 
+////            Serial.print(" my = "); Serial.print( (int)my ); 
+////            Serial.print(" mz = "); Serial.print( (int)mz ); Serial.println(" mG");
+////
+////            Serial.print("q0 = "); Serial.print(q[0]);
+////            Serial.print(" qx = "); Serial.print(q[1]); 
+////            Serial.print(" qy = "); Serial.print(q[2]); 
+////            Serial.print(" qz = "); Serial.println(q[3]); 
 //
-//            Serial.print("q0 = "); Serial.print(q[0]);
-//            Serial.print(" qx = "); Serial.print(q[1]); 
-//            Serial.print(" qy = "); Serial.print(q[2]); 
-//            Serial.print(" qz = "); Serial.println(q[3]); 
-
-        }               
+//        }               
 
 
     
@@ -664,8 +699,8 @@ void controlMotors(){
 //            pitchAccel = pitchAccel * (pitchAccel / 5);
 //          }
 
-          signalY = 0.98 *(signalY*gy*dt) + 0.02*rollAccel;       // Complimentary filter for Y, mix Gyro and Accel with average over time dt
-          signalX = 0.98 *(signalX*gx*dt) + 0.02*pitchAccel;      // Complimentary filter for X
+          signalX = 0.95 *(signalX*gy*dt) + 0.05*pitchAccel*-1;       // Complimentary filter for Y, mix Gyro and Accel with average over time dt
+          signalY = 0.95 *(signalY*gx*dt) + 0.05*rollAccel;      // Complimentary filter for X
     
 //          if(SerialDebug) {
 //            Serial.print("signalY = ");
@@ -736,15 +771,15 @@ void controlMotors(){
       
             if (outX <= deadSpot*-1)                            // decide which way to turn the wheels based on deadSpot variable
             {
-              digitalWrite(DIR_M2, 1);                                 // set direction pins
-              digitalWrite(DIR_M4, 0);
+              digitalWrite(DIR_M2, 0);                                 // set direction pins
+              digitalWrite(DIR_M4, 1);
               analogWrite(PWM_M2, pwm2);                                // set PWM pins 
               analogWrite(PWM_M4, pwm4);
             }
             else if (outX >= deadSpot)                          // decide which way to turn the wheels based on deadSpot variable
             { 
-              digitalWrite(DIR_M2, 0);
-              digitalWrite(DIR_M4, 1);
+              digitalWrite(DIR_M2, 1);
+              digitalWrite(DIR_M4, 0);
               analogWrite(PWM_M2, pwm2);  
               analogWrite(PWM_M4, pwm4);
             }
